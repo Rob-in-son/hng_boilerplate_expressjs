@@ -1,39 +1,28 @@
-import express from "express";
-import ProductController from "../controllers/ProductController";
+import { Router } from "express";
+import { ProductController } from "../controllers/ProductController";
 import { authMiddleware } from "../middleware";
 import { validateProductDetails } from "../middleware/product";
-const productRouter = express.Router();
+import { validateUserToOrg } from "../middleware/organizationValidation";
+import { adminOnly } from "../middleware";
+
+const productRouter = Router();
 const productController = new ProductController();
 
-productRouter.get(
-  "/",
+productRouter.post(
+  "/organizations/:org_id/products",
+  validateProductDetails,
   authMiddleware,
-  productController.getProductPagination.bind(productController),
-);
-
-productRouter.put(
-  "/:product_id",
-  authMiddleware,
-  productController.updateProductById.bind(productController),
+  adminOnly,
+  validateUserToOrg,
+  productController.createProduct,
 );
 
 productRouter.delete(
-  "/:product_id",
+  "/organizations/:org_id/products/:product_id",
   authMiddleware,
-  productController.deleteProduct.bind(productController),
+  adminOnly,
+  validateUserToOrg,
+  productController.deleteProduct,
 );
 
-productRouter.get(
-  "/:product_id",
-  authMiddleware,
-  productController.fetchProductById.bind(productController),
-);
-
-productRouter
-  .route("/product/")
-  .post(
-    validateProductDetails,
-    authMiddleware,
-    productController.createProduct.bind(productController),
-  );
 export { productRouter };

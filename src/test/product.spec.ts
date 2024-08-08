@@ -1,183 +1,200 @@
-// @ts-nocheck
-import { Request, Response, NextFunction } from "express";
-import { ProductController } from "../controllers/ProductController";
-import { ProductService } from "../services";
-import { ProductDTO } from "../models/product";
-import { validateProductDetails } from "../middleware/product";
-import { validationResult, body } from "express-validator";
-
-// get one product
+import { ProductService } from "../services/product.services";
 import { Repository } from "typeorm";
-import AppDataSource from "../data-source";
 import { Product } from "../models/product";
-import { User } from "../models";
-import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
+import { StockStatus } from "../enums/product";
+import { ProductSchema } from "../schema/product.schema";
+import { Organization } from "../models/organization";
+import { ServerError, ResourceNotFound } from "../middleware";
 
-// Mock the external dependencies
-jest.mock("../services/product.services.ts");
-jest.mock("../models/product");
-jest.mock("express-validator", () => ({
-  body: jest.fn(() => ({
-    trim: jest.fn().mockReturnThis(),
-    escape: jest.fn().mockReturnThis(),
-  })),
-  validationResult: jest.fn(),
+jest.mock("../utils", () => ({
+  getIsInvalidMessage: jest
+    .fn()
+    .mockImplementation((field: string) => `${field} is invalid`),
 }));
 
-describe("ProductController - createProduct", () => {
-  let productController: ProductController;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
-  let mockUser: any;
-  let nextFunction: jest.Mock;
+jest.mock("../data-source", () => ({
+  getRepository: jest.fn().mockImplementation((entity) => ({
+    create: jest.fn().mockReturnValue({}),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    remove: jest.fn(),
+    createQueryBuilder: jest.fn(() => ({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockReturnValue([[], 0]),
+    })),
+  })),
+}));
+
+describe("ProductService", () => {
+  let productService: ProductService;
+  let productRepository: Repository<Product>;
+  let organizationRepository: Repository<Organization>;
 
   beforeEach(() => {
-    productController = new ProductController();
-    mockUser = { id: "1", name: "sampleUser", email: "user@sample.com" };
-    mockRequest = {
-      body: {
+    productService = new ProductService();
+    productRepository = productService["productRepository"];
+    organizationRepository = productService["organizationRepository"];
+  });
+
+  describe("createProducts", () => {
+    it("should create a product successfully", async () => {
+      // Mock data
+      const mockOrgId = "1";
+      const mockProduct: ProductSchema = {
         name: "Test Product",
-        description: "Test Description",
-        price: 10.99,
-        category: "Test Category",
-      },
-      user: mockUser,
-    };
-    mockResponse = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
-    nextFunction = jest.fn();
-    (validationResult as unknown as jest.Mock).mockReturnValue({
-      isEmpty: jest.fn().mockReturnValue(true),
-      array: jest.fn().mockReturnValue([]),
+        description: "This is a test product",
+        price: 50,
+        quantity: 50,
+      };
+      const mockOrganization = { id: "1", name: "Test Organization" };
+      const mockCreatedProduct = {
+        ...mockProduct,
+        id: "1",
+        stock_status: StockStatus.IN_STOCK,
+      };
+
+      productService["checkEntities"] = jest
+        .fn()
+        .mockResolvedValue({ organization: mockOrganization });
+      productRepository.create = jest.fn().mockReturnValue(mockCreatedProduct);
+      productRepository.save = jest.fn().mockResolvedValue(mockCreatedProduct);
+      organizationRepository.findOne = jest
+        .fn()
+        .mockResolvedValue(mockOrganization);
+      productService["calculateProductStatus"] = jest
+        .fn()
+        .mockResolvedValue(StockStatus.IN_STOCK);
+
+      const result = await productService.createProduct(mockOrgId, mockProduct);
+      expect(result.status_code).toEqual(201);
+      expect(result.status).toEqual("success");
+      expect(result.message).toEqual("Product created successfully");
+      expect(result.data.name).toEqual(mockProduct.name);
+      expect(result.data.description).toEqual(mockProduct.description);
+      expect(result.data.price).toEqual(mockProduct.price);
+      expect(result.data.quantity).toEqual(mockProduct.quantity);
+      expect(result.data.status).toEqual(StockStatus.IN_STOCK);
     });
-    nextFunction.mockClear();
 
-    // Mock ProductService methods
-    (ProductService.prototype.createProduct as jest.Mock).mockResolvedValue({
-      id: "product123",
-      user: mockUser,
-      ...mockRequest.body.sanitizedData,
+    it("should throw an error when credentials are invalid", async () => {
+      const mockOrgId = "nonexistentOrg";
+      const mockProduct: ProductSchema = {
+        name: "Test Product",
+        description: "This is a test product",
+        price: 50,
+        quantity: 10,
+      };
+
+      productService["checkEntities"] = jest
+        .fn()
+        .mockResolvedValue({ organization: undefined });
+      await expect(
+        productService.createProduct(mockOrgId, mockProduct),
+      ).rejects.toThrow(ServerError);
     });
 
-    // Mock ProductDTO validate method
-    (ProductDTO.prototype.validate as jest.Mock) = jest
-      .fn()
-      .mockResolvedValue(undefined);
-  });
+    it("should throw an error when product data is invalid", async () => {
+      const mockOrgId = "1";
+      const invalidProduct: ProductSchema = {
+        name: "",
+        description: "This is a test product",
+        price: -10,
+        quantity: 50,
+      };
+      const mockOrganization = { id: "1", name: "Test Organization" };
 
-  const runMiddleware = async (
-    middleware: any,
-    req: Partial<Request>,
-    res: Partial<Response>,
-    next: NextFunction,
-  ) => {
-    if (typeof middleware === "function") {
-      await middleware(req as Request, res as Response, next);
-    }
-  };
+      productService["checkEntities"] = jest
+        .fn()
+        .mockResolvedValue({ organization: mockOrganization });
 
-  it("should create a product successfully", async () => {
-    for (const middleware of validateProductDetails) {
-      await runMiddleware(middleware, mockRequest, mockResponse, nextFunction);
-    }
-    await productController.createProduct(
-      mockRequest as Request,
-      mockResponse as Response,
-    );
-
-    expect(nextFunction).toHaveBeenCalled();
-    expect(ProductDTO.prototype.validate).toHaveBeenCalled();
-    expect(ProductService.prototype.createProduct).toHaveBeenCalledWith({
-      ...mockRequest.body,
-      user: mockUser,
+      await expect(
+        productService.createProduct(mockOrgId, invalidProduct),
+      ).rejects.toThrow(Error);
     });
-    expect(mockResponse.status).toHaveBeenCalledWith(201);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      status: "success",
-      status_code: 201,
-      message: "Product created successfully",
-      data: {
-        id: "product123",
-        ...mockRequest.body.sanitizedData,
-      },
-    });
-  });
 
-  it("should return 401 if user is not authenticated", async () => {
-    mockRequest.user = undefined;
+    it("should throw a server error when product creation fails", async () => {
+      const mockOrgId = "1";
+      const mockProduct: ProductSchema = {
+        name: "Test Product",
+        description: "This is a test product",
+        price: 50,
+        quantity: 10,
+      };
 
-    await productController.createProduct(
-      mockRequest as Request,
-      mockResponse as Response,
-    );
+      productService["checkEntities"] = jest.fn().mockResolvedValue({});
+      productRepository.create = jest.fn().mockReturnValue(mockProduct);
+      productRepository.save = jest
+        .fn()
+        .mockRejectedValue(new Error("Database error"));
 
-    expect(mockResponse.status).toHaveBeenCalledWith(401);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      status: "unsuccessful",
-      status_code: 401,
-      message: "Unauthorized User",
-    });
-  });
-
-  it("should handle errors and return 500", async () => {
-    const errorMessage = "Test error";
-    (ProductService.prototype.createProduct as jest.Mock).mockRejectedValue(
-      new Error(errorMessage),
-    );
-
-    await productController.createProduct(
-      mockRequest as Request,
-      mockResponse as Response,
-    );
-
-    expect(mockResponse.status).toHaveBeenCalledWith(500);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      status: "unsuccessful",
-      status_code: 500,
-      message: "Internal server error",
-      error: errorMessage,
+      await expect(
+        productService.createProduct(mockOrgId, mockProduct),
+      ).rejects.toThrow(ServerError);
     });
   });
+  describe("deleteProduct", () => {
+    it("should delete the product from the organization", async () => {
+      const org_id = "org123";
+      const product_id = "prod123";
+      // Mock data
+      const mockProduct = { id: product_id, name: "Test Product" } as Product;
+      productService["checkEntities"] = jest
+        .fn()
+        .mockResolvedValue({ product: mockProduct });
+      productRepository.remove = jest.fn().mockResolvedValue(mockProduct);
 
-  it("should validate and sanitize inputs", async () => {
-    mockRequest.body = {
-      name: '  Test <script>alert("XSS")</script>  ',
-      description: "  Description with &quot;quotes&quot;  ",
-      category: "  Unsafe Category & More  ",
-      price: 10.99,
-    };
+      await productService.deleteProduct(org_id, product_id);
 
-    for (const middleware of validateProductDetails) {
-      await runMiddleware(middleware, mockRequest, mockResponse, nextFunction);
-    }
+      // Verify that the checkEntities and remove methods were called with the correct parameters
+      expect(productService["checkEntities"]).toHaveBeenCalledWith({
+        organization: org_id,
+        product: product_id,
+      });
+      expect(productRepository.remove).toHaveBeenCalledWith(mockProduct);
+    });
+    it("should throw an error if the product is not found", async () => {
+      const org_id = "org123";
+      const product_id = "prod123";
 
-    expect(body).toHaveBeenCalledWith("name");
-    expect(body).toHaveBeenCalledWith("description");
-    expect(body).toHaveBeenCalledWith("category");
-    expect(nextFunction).toHaveBeenCalled();
-  });
+      // Mock the checkEntities method to return undefined for product
+      productService["checkEntities"] = jest
+        .fn()
+        .mockResolvedValue({ product: undefined });
 
-  it("should return 400 if validation fails", async () => {
-    const mockErrors = [
-      { msg: "Name is required", param: "name", location: "body" },
-    ];
+      await expect(
+        productService.deleteProduct(org_id, product_id),
+      ).rejects.toThrow("Product not found");
 
-    (validationResult as unknown as jest.Mock).mockReturnValue({
-      isEmpty: jest.fn().mockReturnValue(false),
-      array: jest.fn().mockReturnValue(mockErrors),
+      // Verify that the checkEntities method was called correctly and remove method was not called
+      expect(productService["checkEntities"]).toHaveBeenCalledWith({
+        organization: org_id,
+        product: product_id,
+      });
+      expect(productRepository.remove).not.toHaveBeenCalled();
     });
 
-    await runMiddleware(
-      validateProductDetails[validateProductDetails.length - 1],
-      mockRequest,
-      mockResponse,
-      nextFunction,
-    );
+    it("should throw an error if checkEntities fails", async () => {
+      const org_id = "org123";
+      const product_id = "prod123";
 
-    expect(nextFunction).not.toHaveBeenCalled();
-    expect(mockResponse.status).toHaveBeenCalledWith(400);
-    expect(mockResponse.json).toHaveBeenCalledWith({ errors: mockErrors });
+      // Mock the checkEntities method to throw an error
+      productService["checkEntities"] = jest
+        .fn()
+        .mockRejectedValue(new Error("Check entities failed"));
+
+      await expect(
+        productService.deleteProduct(org_id, product_id),
+      ).rejects.toThrow("Failed to delete product: Check entities failed");
+
+      // Verify that the checkEntities method was called correctly and remove method was not called
+      expect(productService["checkEntities"]).toHaveBeenCalledWith({
+        organization: org_id,
+        product: product_id,
+      });
+      expect(productRepository.remove).not.toHaveBeenCalled();
+    });
   });
 });
