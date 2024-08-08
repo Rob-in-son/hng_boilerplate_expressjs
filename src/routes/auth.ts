@@ -1,6 +1,10 @@
 import { Router } from "express";
 import {
+<<<<<<< HEAD
   authenticateUserMagicLink,
+=======
+  VerifyUserMagicLink,
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   changePassword,
   changeUserRole,
   createMagicToken,
@@ -41,6 +45,10 @@ authRoute.post(
   requestBodyValidator(emailSchema),
   createMagicToken,
 );
+<<<<<<< HEAD
 authRoute.get("/auth/magic-link", authenticateUserMagicLink);
+=======
+authRoute.get("/auth/magic-link/verify", VerifyUserMagicLink);
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
 
 export { authRoute };

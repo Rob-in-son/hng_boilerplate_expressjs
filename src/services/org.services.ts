@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import config from "../config/index";
 import AppDataSource from "../data-source";
 import { UserRole } from "../enums/userRoles";
+<<<<<<< HEAD
 import { BadRequest } from "../middleware";
 import { Conflict, ResourceNotFound } from "../middleware/error";
 import { Invitation, OrgInviteToken, UserOrganization } from "../models";
@@ -12,11 +13,29 @@ import { User } from "../models/user";
 import { ICreateOrganisation, IOrgService } from "../types";
 import { addEmailToQueue } from "../utils/queue";
 import renderTemplate from "../views/email/renderTemplate";
+=======
+import { BadRequest, ResourceNotFound, Conflict } from "../middleware";
+import { Organization, Invitation, UserOrganization } from "../models";
+import { OrganizationRole } from "../models/organization-role.entity";
+import { User } from "../models/user";
+import { ICreateOrganisation, IOrgService } from "../types";
+import log from "../utils/logger";
+
+import { addEmailToQueue } from "../utils/queue";
+import renderTemplate from "../views/email/renderTemplate";
+import { PermissionCategory } from "../enums/permission-category.enum";
+import { Permissions } from "../models/permissions.entity";
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
 const frontendBaseUrl = config.BASE_URL;
 
 export class OrgService implements IOrgService {
   private organizationRepository: Repository<Organization>;
   private organizationRoleRepository: Repository<OrganizationRole>;
+<<<<<<< HEAD
+=======
+  private permissionRepository: Repository<Permissions>;
+
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   constructor() {
     this.organizationRepository = AppDataSource.getRepository(Organization);
     this.organizationRoleRepository =
@@ -136,6 +155,7 @@ export class OrgService implements IOrgService {
 
     const organization = await organizationRepository.findOne({
       where: { id: org_id, userOrganizations: { user: { id: userId } } },
+<<<<<<< HEAD
     });
 
     if (!organization) {
@@ -288,9 +308,190 @@ export class OrgService implements IOrgService {
     userOrganization.organization = organization;
     userOrganization.role = UserRole.USER;
 
+=======
+    });
+
+    if (!organization) {
+      throw new ResourceNotFound(`Organization with id '${org_id}' not found`);
+    }
+
+    Object.assign(organization, update_data);
+
+    try {
+      await organizationRepository.update(organization.id, update_data);
+      return organization;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  public async generateGenericInviteLink(
+    organizationId: string,
+  ): Promise<string> {
+    const inviteRepository = AppDataSource.getRepository(Invitation);
+    const organizationRepository = AppDataSource.getRepository(Organization);
+    const organization = await organizationRepository.findOne({
+      where: { id: organizationId },
+    });
+    if (!organization) {
+      throw new ResourceNotFound(
+        `Organization with ID ${organizationId} not found`,
+      );
+    }
+    const token = uuidv4();
+
+    const invite = inviteRepository.create({
+      token,
+      isGeneric: true,
+      organization: { id: organizationId },
+    });
+
+    await inviteRepository.save(invite);
+
+    return `${frontendBaseUrl}/invite?token=${token}`;
+  }
+
+  async generateAndSendInviteLinks(
+    emails: string[],
+    organizationId: string,
+  ): Promise<void> {
+    const inviteRepository = AppDataSource.getRepository(Invitation);
+    const organizationRepository = AppDataSource.getRepository(Organization);
+    const organization = await organizationRepository.findOne({
+      where: { id: organizationId },
+    });
+    console.log("here", organization);
+    if (!organization) {
+      throw new ResourceNotFound(
+        `Organization with ID ${organizationId} not found`,
+      );
+    }
+
+    const invites = emails.map((email) => {
+      const token = uuidv4();
+      return inviteRepository.create({
+        token,
+        email: email,
+        isGeneric: false,
+        organization: { id: organizationId },
+      });
+    });
+
+    invites.forEach((invite) => {
+      const inviteLink = `${frontendBaseUrl}/invite?token=${invite.token}`;
+      const emailContent = {
+        userName: invite.email.split("@")[0],
+        title: "Invitation to Join Organization",
+        body: `<p>You have been invited to join ${organization.name} organization. Please use the following link to accept the invitation:</p><a href="${inviteLink}">Here</a>`,
+      };
+
+      const mailOptions = {
+        from: "admin@mail.com",
+        to: invite.email,
+        subject: "Invitation to Join Organization",
+        html: renderTemplate("custom-email", emailContent),
+      };
+
+      addEmailToQueue(mailOptions);
+    });
+    await inviteRepository.save(invites);
+  }
+
+  async addUserToOrganizationWithInvite(
+    token: string,
+    userId: string,
+  ): Promise<string> {
+    const inviteRepository = AppDataSource.getRepository(Invitation);
+    const userOrganizationRepository =
+      AppDataSource.getRepository(UserOrganization);
+    const userRepository = AppDataSource.getRepository(User);
+    const invite = await inviteRepository.findOne({
+      where: { token },
+      relations: ["organization"],
+    });
+
+    if (!invite) {
+      throw new ResourceNotFound("Invalid or expired invite token");
+    }
+
+    const user = await userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new ResourceNotFound("Please register to join the organization.");
+    }
+    const existingMembership = await userOrganizationRepository.findOne({
+      where: {
+        userId: user.id,
+        organizationId: invite.organization.id,
+      },
+    });
+
+    if (existingMembership) {
+      throw new Conflict("User already added to organization.");
+    }
+
+    const userOrganization = userOrganizationRepository.create({
+      userId: user.id,
+      organizationId: invite.organization.id,
+      user: user,
+      organization: invite.organization,
+      role: user.role,
+    });
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
     await userOrganizationRepository.save(userOrganization);
   }
 
+<<<<<<< HEAD
+=======
+    invite.isAccepted = true;
+    await inviteRepository.save(invite);
+
+    return "User added to organization successfully";
+  }
+  async getAllInvite(
+    page: number,
+    pageSize: number,
+  ): Promise<{
+    message: string;
+    data: Partial<Invitation>[];
+    total: number;
+    status_code: number;
+  }> {
+    const inviteRepository = AppDataSource.getRepository(Invitation);
+
+    const [invites, total] = await inviteRepository.findAndCount({
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    if (invites.length === 0) {
+      return {
+        status_code: 200,
+        message: "No invites yet",
+        data: invites,
+        total,
+      };
+    }
+
+    const sentInvites = invites.map((invite) => {
+      return {
+        id: invite.id,
+        token: invite.token,
+        isAccepted: invite.isAccepted,
+        isGeneric: invite.isGeneric,
+        organization: invite.organization,
+        email: invite.email,
+      };
+    });
+
+    return {
+      status_code: 200,
+      message: "Successfully fetched invites",
+      data: sentInvites,
+      total,
+    };
+  }
+
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   public async searchOrganizationMembers(criteria: {
     name?: string;
     email?: string;
@@ -347,8 +548,37 @@ export class OrgService implements IOrgService {
     return [];
   }
 
+<<<<<<< HEAD
   public async fetchSingleRole(organizationId: string, roleId: string) {
     // const orgRoles = await this.
+=======
+  public async fetchSingleRole(
+    organizationId: string,
+    roleId: string,
+  ): Promise<null | OrganizationRole> {
+    try {
+      const organisation = await this.organizationRepository.findOne({
+        where: { id: organizationId },
+      });
+      if (!organisation) {
+        throw new ResourceNotFound(
+          `Organisation with ID ${organizationId} not found`,
+        );
+      }
+
+      const role = await this.organizationRoleRepository.findOne({
+        where: { id: roleId, organization: { id: organizationId } },
+        relations: ["permissions"],
+      });
+      if (!role) {
+        return null;
+      }
+
+      return role;
+    } catch (error) {
+      throw error;
+    }
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   }
 
   public async fetchAllRolesInOrganization(organizationId: string) {
@@ -370,5 +600,64 @@ export class OrgService implements IOrgService {
     } catch (error) {
       throw error;
     }
+<<<<<<< HEAD
+=======
+  }
+
+  public async updateRolePermissions(
+    roleId: string,
+    organizationId: string,
+    newPermissions: PermissionCategory[],
+  ) {
+    try {
+      const organization = await this.organizationRepository.findOne({
+        where: { id: organizationId },
+      });
+
+      if (!organization) {
+        throw new ResourceNotFound("Organization not found");
+      }
+
+      const role = await this.organizationRoleRepository.findOne({
+        where: { id: roleId, organization: { id: organizationId } },
+        relations: ["permissions"],
+      });
+
+      if (!role) {
+        throw new ResourceNotFound("Role not found");
+      }
+
+      const newPermissionsSet = new Set(newPermissions);
+
+      role.permissions = role.permissions.filter((permission) =>
+        newPermissionsSet.has(permission.category),
+      );
+
+      const existingCategories = new Set(
+        role.permissions.map((permission) => permission.category),
+      );
+
+      for (const category of newPermissions) {
+        if (!existingCategories.has(category)) {
+          const newPermission = this.permissionRepository.create({
+            category,
+            role,
+            permission_list: true,
+          });
+          role.permissions.push(newPermission);
+        }
+      }
+
+      role.permissions = role.permissions.filter((permission) =>
+        newPermissionsSet.has(permission.category),
+      );
+
+      await this.organizationRoleRepository.save(role);
+
+      return role;
+    } catch (error) {
+      throw error;
+    }
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   }
 }

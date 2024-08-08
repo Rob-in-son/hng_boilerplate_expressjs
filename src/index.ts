@@ -22,6 +22,10 @@ import {
   paymentRouter,
   paymentStripeRouter,
   productRouter,
+<<<<<<< HEAD
+=======
+  billingRouter,
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   runTestRouter,
   sendEmailRoute,
   testimonialRoute,
@@ -81,6 +85,10 @@ server.use("/api/v1", paymentStripeRouter);
 server.use("/api/v1", smsRouter);
 server.use("/api/v1", notificationRouter);
 server.use("/api/v1", paymentRouter);
+<<<<<<< HEAD
+=======
+server.use("/api/v1", billingRouter);
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
 server.use("/api/v1", orgRouter);
 server.use("/api/v1", exportRouter);
 server.use("/api/v1", testimonialRoute);

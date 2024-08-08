@@ -14,7 +14,11 @@ import {
   Unique,
   UpdateDateColumn,
 } from "typeorm";
+<<<<<<< HEAD
 import { Blog, Organization, Product, Profile, Sms } from ".";
+=======
+import { Blog, Comment, Organization, Product, Profile, Sms } from ".";
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
 import { UserRole } from "../enums/userRoles";
 import { getIsInvalidMessage } from "../utils";
 import ExtendedBaseEntity from "./extended-base-entity";
@@ -112,6 +116,12 @@ export class User extends ExtendedBaseEntity {
   )
   organizationMembers: OrganizationMember[];
 
+<<<<<<< HEAD
+=======
+  @OneToMany(() => Comment, (comment) => comment.author)
+  comments: Comment[];
+
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
   createPasswordResetToken(): string {
     const resetToken = crypto.randomBytes(32).toString("hex");
 

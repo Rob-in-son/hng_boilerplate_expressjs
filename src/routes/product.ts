@@ -8,6 +8,10 @@ import { adminOnly } from "../middleware";
 const productRouter = Router();
 const productController = new ProductController();
 
+<<<<<<< HEAD
+=======
+// route
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
 productRouter.post(
   "/organizations/:org_id/products",
   validateProductDetails,
@@ -15,6 +19,16 @@ productRouter.post(
   adminOnly,
   validateUserToOrg,
   productController.createProduct,
+<<<<<<< HEAD
+=======
+);
+
+productRouter.get(
+  "/organizations/:org_id/products/search",
+  authMiddleware,
+  validateUserToOrg,
+  productController.getProduct,
+>>>>>>> 78e02e38ee685830aa91acb2e343579bc4d1fd45
 );
 
 productRouter.delete(
