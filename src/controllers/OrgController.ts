@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
+import { ResourceNotFound, ServerError, HttpError } from "../middleware";
 import { OrgService } from "../services/org.services";
 import log from "../utils/logger";
 
@@ -10,7 +11,7 @@ export class OrgController {
 
   /**
    * @swagger
-   * /api/v1/organisations:
+   * /api/v1/organizations:
    *   post:
    *     summary: Create a new organisation
    *     description: This endpoint allows a user to create a new organisation
@@ -44,6 +45,9 @@ export class OrgController {
    *               country:
    *                 type: string
    *                 example: Nigeria
+   *               address:
+   *                 type: string
+   *                 example: 121 ikeja
    *               state:
    *                 type: string
    *                 example: Oyo
@@ -54,6 +58,7 @@ export class OrgController {
    *               - industry
    *               - type
    *               - country
+   *               - address
    *               - state
    *     responses:
    *       '201':
@@ -93,6 +98,9 @@ export class OrgController {
    *                     country:
    *                       type: string
    *                       example: Nigeria
+   *                     address:
+   *                       type: string
+   *                       example: 121 ikeja
    *                     state:
    *                       type: string
    *                       example: Oyo
@@ -149,8 +157,6 @@ export class OrgController {
    *       type: http
    *       scheme: bearer
    *       bearerFormat: JWT
-   *
-   *
    */
 
   async createOrganisation(req: Request, res: Response, next: NextFunction) {
@@ -160,7 +166,7 @@ export class OrgController {
       const userId = user.id;
 
       const organisationService = new OrgService();
-      const newOrganisation = await organisationService.createOrganisation(
+      const new_organisation = await organisationService.createOrganisation(
         payload,
         userId,
       );
@@ -168,7 +174,7 @@ export class OrgController {
       const respObj = {
         status: "success",
         message: "organisation created successfully",
-        data: newOrganisation,
+        data: new_organisation,
         status_code: 201,
       };
 
@@ -180,7 +186,7 @@ export class OrgController {
 
   /**
    * @swagger
-   * /api/v1/users/{userId}/organisations:
+   * /api/v1/users/{userId}/organizations:
    *   get:
    *     summary: Get user organizations
    *     description: Retrieve all organizations associated with a specific user
@@ -295,7 +301,7 @@ export class OrgController {
 
   /**
    * @swagger
-   * /api/v1/organisations/{org_id}:
+   * /api/v1/organizations/{org_id}:
    *   get:
    *     summary: Get a single organization
    *     description: Retrieve details of a specific organization by its ID
@@ -401,7 +407,7 @@ export class OrgController {
 
   /**
    * @swagger
-   * /api/v1/organisations/{org_id}/user/{user_id}:
+   * /api/v1/organizations/{org_id}/user/{user_id}:
    *   delete:
    *     summary: Remove a user from an organization
    *     description: Delete a user from a specific organization by user ID and organization ID
@@ -499,29 +505,175 @@ export class OrgController {
 
   /**
    * @swagger
-   * /organisations/join:
-   *   post:
-   *     summary: Join an organization
-   *     description: This endpoint allows a user to join an organization using an invite token
-   *     tags: [Organisation]
-   *     operationId: joinOrganization
-   *     security:
-   *       - bearerAuth: []
+   * /organizations/{organization_id}:
+   *   put:
+   *     summary: Update organization details
+   *     description: Update the details of an existing organization
+   *     parameters:
+   *       - in: path
+   *         name: organization_id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The ID of the organization to update
    *     requestBody:
-   *       description: Invite token
    *       required: true
    *       content:
    *         application/json:
    *           schema:
    *             type: object
    *             required:
-   *               - inviteToken
+   *               - name
+   *               - email
+   *               - industry
+   *               - type
+   *               - country
+   *               - address
+   *               - state
+   *               - description
    *             properties:
-   *               inviteToken:
+   *               name:
    *                 type: string
+   *                 example: "New Organization Name"
+   *               email:
+   *                 type: string
+   *                 example: "newemail@example.com"
+   *               industry:
+   *                 type: string
+   *                 example: "Tech"
+   *               type:
+   *                 type: string
+   *                 example: "Private"
+   *               country:
+   *                 type: string
+   *                 example: "NGA"
+   *               address:
+   *                 type: string
+   *                 example: "1234 New HNG"
+   *               state:
+   *                 type: string
+   *                 example: "Lagos"
+   *               description:
+   *                 type: string
+   *                 example: "A new description of the organization."
    *     responses:
    *       200:
-   *         description: User successfully added to the organization
+   *         description: Organization updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: "success"
+   *                 status_code:
+   *                   type: integer
+   *                   example: 200
+   *                 message:
+   *                   type: string
+   *                   example: "Organisation updated successfully"
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     organization_id:
+   *                       type: string
+   *                       example: "61202249-0bc4-41eb-8cd5-7b873b7c7cc7"
+   *                     name:
+   *                       type: string
+   *                       example: "New Organization Name"
+   *                     email:
+   *                       type: string
+   *                       example: "newemail@example.com"
+   *                     industry:
+   *                       type: string
+   *                       example: "Tech"
+   *                     type:
+   *                       type: string
+   *                       example: "Private"
+   *                     country:
+   *                       type: string
+   *                       example: "NGA"
+   *                     address:
+   *                       type: string
+   *                       example: "1234 New HNG"
+   *                     state:
+   *                       type: string
+   *                       example: "Lagos"
+   *                     description:
+   *                       type: string
+   *                       example: "A new description of the organization."
+   *       404:
+   *         description: Organization not found
+   *       500:
+   *         description: Failed to update organization details
+   */
+
+  async updateOrganisation(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orgId = req.params.organization_id;
+      const payload = req.body;
+      const userId = req.user.id;
+
+      const updatedOrganisation =
+        await this.orgService.updateOrganizationDetails(orgId, userId, payload);
+
+      const {
+        id,
+        name,
+        email,
+        industry,
+        type,
+        country,
+        address,
+        state,
+        description,
+      } = updatedOrganisation;
+
+      const respObj = {
+        status: "success",
+        status_code: 200,
+        message: "Organisation updated successfully",
+        data: {
+          organization_id: id,
+          name,
+          email,
+          industry,
+          type,
+          country,
+          address,
+          state,
+          description,
+        },
+      };
+
+      return res.status(200).json(respObj);
+    } catch (error) {
+      if (error instanceof ResourceNotFound) {
+        next(error);
+      } else {
+        next(new HttpError(500, "Failed to update organization details"));
+      }
+    }
+  }
+
+  /**
+   * @swagger
+   * /organizations/accept-invite:
+   *   post:
+   *     summary: Accept an invitation to join an organization
+   *     description: Accept an invitation to join an organization using a token provided in the query parameters.
+   *     tags: [Organization]
+   *     parameters:
+   *       - in: query
+   *         name: token
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The invitation token
+   *     responses:
+   *       200:
+   *         description: You have been added to the organization.
    *         content:
    *           application/json:
    *             schema:
@@ -535,24 +687,9 @@ export class OrgController {
    *                   example: 200
    *                 message:
    *                   type: string
-   *                   example: User successfully added to the organization.
-   *       400:
-   *         description: Bad request
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 status:
-   *                   type: string
-   *                   example: unsuccessful
-   *                 status_code:
-   *                   type: integer
-   *                   example: 400
-   *                 message:
-   *                   type: string
+   *                   example: You have been added to the organization.
    *       422:
-   *         description: Unprocessable Entity
+   *         description: Invite token is required.
    *         content:
    *           application/json:
    *             schema:
@@ -567,16 +704,60 @@ export class OrgController {
    *                 message:
    *                   type: string
    *                   example: Invite token is required!
+   *       404:
+   *         description: Resource not found.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: Unsuccessful
+   *                 status_code:
+   *                   type: integer
+   *                   example: 404
+   *                 message:
+   *                   type: string
+   *                   example: Resource not found.
+   *       409:
+   *         description: Conflict - already a member.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: Unsuccessful
+   *                 status_code:
+   *                   type: integer
+   *                   example: 409
+   *                 message:
+   *                   type: string
+   *                   example: You are already a member.
+   *       400:
+   *         description: An error occurred while processing the request.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: Unsuccessful
+   *                 status_code:
+   *                   type: integer
+   *                   example: 400
+   *                 message:
+   *                   type: string
+   *                   example: Error message
    */
 
-  public async joinOrganization(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
+  public async acceptInvite(req: Request, res: Response, next: NextFunction) {
     try {
-      const { inviteToken } = req.body;
-      if (!inviteToken) {
+      const token = req.query.token as string;
+      if (!token) {
         res.status(422).json({
           status: "Unsuccessful",
           status_code: 422,
@@ -585,33 +766,113 @@ export class OrgController {
         return;
       }
       const userId = req.user.id;
-      await this.orgService.joinOrganizationByInvite(inviteToken, userId);
+
+      await this.orgService.joinOrganizationByInvite(token, userId);
 
       res.status(200).json({
         status: "success",
         status_code: 200,
-        message: "User successfully added to the organization.",
+        message: "You have been added to the organization.",
       });
     } catch (error) {
-      res.status(400).json({
-        status: "unsuccessful",
-        status_code: 400,
-        message: error.message,
-      });
+      next(error);
     }
   }
 
   /**
    * @swagger
-   * /api/v1/organisations/{orgId}/invite:
-   *   post:
-   *     summary: Create an invitation to join an organization
-   *     tags: [Organisation]
-   *     security:
-   *       - bearerAuth: []
+   * /organizations/{org_id}/invite:
+   *   get:
+   *     summary: Generate an invitation link for an organization
+   *     description: Generate an invitation link for an organization using the organization ID provided in the URL parameters.
+   *     tags: [Organization]
    *     parameters:
    *       - in: path
-   *         name: orgId
+   *         name: org_id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The ID of the organization
+   *     responses:
+   *       200:
+   *         description: Invitation link generated successfully.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: success
+   *                 status_code:
+   *                   type: integer
+   *                   example: 200
+   *                 invite_token:
+   *                   type: string
+   *                   example: generated-token
+   *       404:
+   *         description: Organization not found.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: Unsuccessful
+   *                 status_code:
+   *                   type: integer
+   *                   example: 404
+   *                 message:
+   *                   type: string
+   *                   example: Organization not found.
+   *       400:
+   *         description: An error occurred while processing the request.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: Unsuccessful
+   *                 status_code:
+   *                   type: integer
+   *                   example: 400
+   *                 message:
+   *                   type: string
+   *                   example: Error message
+   */
+
+  public async generateInviteLink(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const orgId = req.params.org_id;
+
+      const invite_link = await this.orgService.generateInviteLink(orgId);
+      res.status(200).json({
+        status: "success",
+        status_code: 200,
+        invite_link,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * @swagger
+   * /organizations/{org_id}/send-invite:
+   *   post:
+   *     summary: Send invitation links to join an organization
+   *     description: Send invitation links to a list of emails to join an organization using the organization ID provided in the URL parameters.
+   *     tags: [Organization]
+   *     parameters:
+   *       - in: path
+   *         name: org_id
    *         required: true
    *         schema:
    *           type: string
@@ -624,12 +885,15 @@ export class OrgController {
    *             type: object
    *             properties:
    *               email:
-   *                 type: string
-   *                 description: The email of the invitee
-   *                 example: "invitee@example.com"
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: The list of emails to send invitations to
+   *             example:
+   *               email: ["user1@example.com", "user2@example.com"]
    *     responses:
    *       200:
-   *         description: Invitation successfully sent
+   *         description: Invitations successfully sent.
    *         content:
    *           application/json:
    *             schema:
@@ -637,31 +901,15 @@ export class OrgController {
    *               properties:
    *                 status:
    *                   type: string
-   *                   example: "success"
+   *                   example: Success
    *                 status_code:
    *                   type: integer
    *                   example: 200
    *                 message:
    *                   type: string
-   *                   example: "Invitation successfully sent."
-   *       400:
-   *         description: Bad request
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 status:
-   *                   type: string
-   *                   example: "unsuccessful"
-   *                 status_code:
-   *                   type: integer
-   *                   example: 400
-   *                 message:
-   *                   type: string
-   *                   example: "Error message describing the issue."
+   *                   example: Invitations successfully sent.
    *       422:
-   *         description: Unprocessable Entity
+   *         description: Emails are required.
    *         content:
    *           application/json:
    *             schema:
@@ -669,15 +917,15 @@ export class OrgController {
    *               properties:
    *                 status:
    *                   type: string
-   *                   example: "Unsuccessful"
+   *                   example: Unsuccessful
    *                 status_code:
    *                   type: integer
    *                   example: 422
    *                 message:
    *                   type: string
-   *                   example: "Email is required!"
-   *       500:
-   *         description: Internal server error
+   *                   example: Emails are required!
+   *       404:
+   *         description: Organization not found.
    *         content:
    *           application/json:
    *             schema:
@@ -685,47 +933,227 @@ export class OrgController {
    *               properties:
    *                 status:
    *                   type: string
-   *                   example: "unsuccessful"
+   *                   example: Unsuccessful
    *                 status_code:
    *                   type: integer
-   *                   example: 500
+   *                   example: 404
    *                 message:
    *                   type: string
-   *                   example: "Internal server error."
+   *                   example: Organization not found.
+   *       400:
+   *         description: An error occurred while processing the request.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: Unsuccessful
+   *                 status_code:
+   *                   type: integer
+   *                   example: 400
+   *                 message:
+   *                   type: string
+   *                   example: Error message
    */
 
-  public async createInvitation(
+  public async sendInviteLinks(
     req: Request,
     res: Response,
     next: NextFunction,
   ) {
     try {
       const { email } = req.body;
-      const orgId = req.params.orgId;
-      const inviterId = req.user.id;
+      const orgId = req.params.org_id;
 
       if (!email) {
-        res.status(422).json({
+        return res.status(422).json({
           status: "Unsuccessful",
           status_code: 422,
-          message: "Email is required!",
+          message: "Emails are required!",
         });
-        return;
       }
 
-      await this.orgService.createInvitation(orgId, email, inviterId);
+      const emailList = Array.isArray(email) ? email : [email];
+
+      await this.orgService.sendInviteLinks(orgId, emailList);
 
       res.status(200).json({
-        status: "success",
+        status: "Success",
         status_code: 200,
-        message: "Invitation successfully sent.",
+        message: "Invitations successfully sent.",
       });
     } catch (error) {
-      res.status(400).json({
-        status: "unsuccessful",
-        status_code: 400,
-        message: error.message,
+      next(error);
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/v1/members/search:
+   *   post:
+   *     summary: Search organization members by name or email
+   *     tags: [Members]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *                 example: "John Doe"
+   *               email:
+   *                 type: string
+   *                 example: "johndoe@example.com"
+   *             required:
+   *               - name
+   *               - email
+   *     responses:
+   *       200:
+   *         description: List of organization members matching the search criteria
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 result:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       organizationId:
+   *                         type: string
+   *                       organizationName:
+   *                         type: string
+   *                       organizationEmail:
+   *                         type: string
+   *                       members:
+   *                         type: array
+   *                         items:
+   *                           type: object
+   *                           properties:
+   *                             userId:
+   *                               type: string
+   *                             userName:
+   *                               type: string
+   *                             userEmail:
+   *                               type: string
+   *                 status_code:
+   *                   type: integer
+   *                   example: 200
+   *       400:
+   *         description: At least one search criterion (name or email) must be provided
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                 status_code:
+   *                   type: integer
+   *                   example: 400
+   *       404:
+   *         description: No members found matching the search criteria
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                 status_code:
+   *                   type: integer
+   *                   example: 404
+   *       500:
+   *         description: An error occurred while searching for members
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                 status_code:
+   *                   type: integer
+   *                   example: 500
+   */
+  async searchOrganizationMembers(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    const { name, email } = req.query;
+
+    if (!name && !email) {
+      return res.status(400).json({
+        error:
+          "At least one search criterion (name or email) must be provided.",
+        status_code: "400",
       });
+    }
+
+    try {
+      const result = await this.orgService.searchOrganizationMembers({
+        name: name as string,
+        email: email as string,
+      });
+      if (result.length > 0) {
+        return res.status(200).json({
+          result: result,
+          status_code: 200,
+        });
+      } else {
+        return res.status(404).json({
+          error: "No members found matching the search criteria.",
+          status_code: 404,
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getSingleRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const organizationId = req.params.org_id;
+      const roleId = req.params.role_id;
+      const response = await this.orgService.fetchSingleRole(
+        organizationId,
+        roleId,
+      );
+
+      return res.status(200).json({
+        status_code: 200,
+        data: response,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllOrganizationRoles(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const organizationId = req.params.org_id;
+      const response =
+        await this.orgService.fetchAllRolesInOrganization(organizationId);
+
+      return res.status(200).json({
+        status_code: 200,
+        data: response,
+      });
+    } catch (error) {
+      if (error instanceof ResourceNotFound) {
+        next(error);
+      }
+      next(new ServerError("Error fetching all roles in organization"));
     }
   }
 }

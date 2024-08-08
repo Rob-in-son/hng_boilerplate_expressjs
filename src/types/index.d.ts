@@ -1,6 +1,4 @@
 import { User } from "../models";
-import { Request } from "express";
-import { UserRole } from "../enums/userRoles";
 
 export interface IUserService {
   getUserById(id: string): Promise<User | null>;
@@ -41,6 +39,11 @@ export interface IAuthService {
     newPassword: string,
     confirmPassword: string,
   ): Promise<{ message: string }>;
+  generateMagicLink(email: string): Promise<{ ok: boolean; message: string }>;
+  validateMagicLinkToken(
+    token: string,
+  ): Promise<{ status: string; email: string; userId: string }>;
+  passwordlessLogin(userId: string): Promise<{ access_token: string }>;
 }
 
 export interface ICreateOrganisation {
@@ -80,4 +83,12 @@ export interface GoogleUser {
   name: string;
   picture: string;
   sub: string;
+}
+
+export interface INewsLetterSubscriptionService {
+  subscribeUser(email: string): Promise<any>;
+}
+
+export interface INewsLetterSubscription {
+  email: string;
 }

@@ -1,47 +1,84 @@
 import Router from "express";
 import { OrgController } from "../controllers/OrgController";
-import { authMiddleware, checkPermissions } from "../middleware";
 import { UserRole } from "../enums/userRoles";
-import { organizationValidation } from "../middleware/organization.validation";
-import { validateOrgId } from "../middleware/organization.validation";
+import {
+  authMiddleware,
+  checkPermissions,
+  organizationValidation,
+  validateOrgId,
+  validateUpdateOrg,
+} from "../middleware";
 
 const orgRouter = Router();
 const orgController = new OrgController();
 
 orgRouter.get(
-  "/organisations/:org_id",
+  "/organizations/:org_id",
   authMiddleware,
   validateOrgId,
   orgController.getSingleOrg.bind(orgController),
 );
 orgRouter.delete(
-  "/organisations/:org_id/user/:user_id",
+  "/organizations/:org_id/user/:user_id",
   authMiddleware,
   validateOrgId,
   orgController.removeUser.bind(orgController),
 );
+orgRouter.get(
+  "/organizations/:org_id/invite",
+  authMiddleware,
+  checkPermissions([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
 
+  orgController.generateInviteLink.bind(orgController),
+);
 orgRouter.post(
-  "/organisations",
+  "/organizations",
   authMiddleware,
   organizationValidation,
   orgController.createOrganisation.bind(orgController),
 );
+
 orgRouter.post(
-  "/organisations/join",
+  "/organizations/accept-invite",
   authMiddleware,
-  orgController.joinOrganization.bind(orgController),
+  orgController.acceptInvite.bind(orgController),
 );
+
 orgRouter.post(
-  "/organisations/:orgId/invite",
+  "/organizations/:org_id/send-invite",
   authMiddleware,
   checkPermissions([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
-  orgController.createInvitation.bind(orgController),
+  orgController.sendInviteLinks.bind(orgController),
 );
 orgRouter.get(
-  "/users/:id/organisations",
+  "/users/:id/organizations",
   authMiddleware,
   orgController.getOrganizations.bind(orgController),
 );
 
+orgRouter.get(
+  "/members/search",
+  authMiddleware,
+  orgController.searchOrganizationMembers.bind(orgController),
+);
+
+orgRouter.put(
+  "/organizations/:organization_id",
+  authMiddleware,
+  validateUpdateOrg,
+  checkPermissions([UserRole.SUPER_ADMIN, UserRole.USER]),
+  orgController.updateOrganisation.bind(orgController),
+);
+
+orgRouter.get(
+  "/organizations/:org_id/roles/:role_id",
+  authMiddleware,
+  orgController.getSingleRole,
+);
+
+orgRouter.get(
+  "/organizations/:org_id/roles",
+  authMiddleware,
+  orgController.getAllOrganizationRoles,
+);
 export { orgRouter };
